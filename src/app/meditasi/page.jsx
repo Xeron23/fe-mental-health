@@ -22,14 +22,30 @@ const Meditasi = () => {
   useEffect(() => {
     const fetchMeditations = async () => {
       try {
-        const res = await request.get("/meditation");
+        const [resMeditasi, resAlam] = await Promise.all([
+          request.get("/meditation?type=meditasi"),
+          request.get("/meditation?type=alam"),
+        ]);
 
-        if (!res || res.code !== 200) throw new Error("Gagal fetch data");
+        if (resMeditasi.code !== 200 || resAlam.code !== 200)
+          throw new Error("Gagal fetch data");
 
         const playlistsData = [
           {
             category: "Meditasi",
-            tracks: res.data.map((item) => ({
+            tracks: resMeditasi.data.map((item) => ({
+              id: item.meditation_id,
+              title: item.title,
+              description: item.description,
+              thumbnail: item.thumbnailUrl,
+              mediaUrl: item.mediaUrl,
+              duration: item.duration,
+              type: item.type,
+            })),
+          },
+          {
+            category: "Alam",
+            tracks: resAlam.data.map((item) => ({
               id: item.meditation_id,
               title: item.title,
               description: item.description,
@@ -78,15 +94,18 @@ const Meditasi = () => {
 
   const _keyOf = (t) => (t.id ? `${t.id}` : `${t.title}||${t.artist}`);
 
+  
   const toggleFavorite = async (track) => {
     const key = _keyOf(track);
     const exists = favorites.some((f) => _keyOf(f) === key);
 
     try {
       if (exists) {
+        // hapus dari favorite
         await request.delete(`/meditation/meditate-favorite/${track.id}`);
         setFavorites((prev) => prev.filter((f) => _keyOf(f) !== key));
       } else {
+        // tambahkan ke favorite
         await request.post("/meditation/meditate-favorite", {
           meditation_id: track.id,
         });
@@ -97,6 +116,7 @@ const Meditasi = () => {
     }
   };
 
+  
   const handlePlay = (track, context) => {
     setCurrentTrack(track);
     setCurrentPlaylistContext(context || null);
