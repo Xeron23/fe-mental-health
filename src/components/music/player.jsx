@@ -13,7 +13,7 @@ import {
   FaHeart,
   FaBars,
 } from "react-icons/fa";
-import { FaVolumeHigh, FaVolumeMute } from "react-icons/fa6";
+import { FaRepeat, FaVolumeHigh, FaVolumeMute } from "react-icons/fa6";
 import ReactPlayer from "react-player";
 
 const Player = ({
@@ -133,7 +133,7 @@ const Player = ({
             <h4 className="font-semibold text-sm line-clamp-1">
               {currentTrack.title || "Nothing Playing"}
             </h4>
-            <button
+            {/* <button
               onClick={onToggleFavorite}
               className="cursor-pointer ml-2"
               type="button"
@@ -143,7 +143,7 @@ const Player = ({
                   isFavorite ? "text-red-500" : "text-gray-400 hover:text-white"
                 }`}
               />
-            </button>
+            </button> */}
           </div>
           <p className="text-xs text-gray-300 line-clamp-1">
             {currentTrack.artist || currentTrack.description || ""}
@@ -177,10 +177,10 @@ const Player = ({
             onClick={onNext}
             className="cursor-pointer text-gray-300 hover:text-white"
           />
-          <FaRedoAlt className="cursor-pointer text-gray-300 hover:text-white" />
+          <FaRepeat className="cursor-pointer text-gray-300 hover:text-white" />
         </div>
 
-        <div className="flex items-center gap-2 w-full max-w-[500px]">
+        <div className="flex items-center gap-3 w-full max-w-[500px]">
           <span className="text-xs text-gray-400 min-w-[35px]">
             {formatTime(currentTime)}
           </span>
@@ -203,7 +203,7 @@ const Player = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 justify-end w-1/3">
+      <div className="flex items-center gap-5 justify-end w-1/3">
         <div className="flex items-center gap-2">
           <button onClick={handleToggleMute} type="button">
             {isMuted || volume === 0 ? (
