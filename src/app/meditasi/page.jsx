@@ -94,7 +94,6 @@ const Meditasi = () => {
 
   const _keyOf = (t) => (t.id ? `${t.id}` : `${t.title}||${t.artist}`);
 
-  
   const toggleFavorite = async (track) => {
     const key = _keyOf(track);
     const exists = favorites.some((f) => _keyOf(f) === key);
@@ -116,7 +115,6 @@ const Meditasi = () => {
     }
   };
 
-  
   const handlePlay = (track, context) => {
     setCurrentTrack(track);
     setCurrentPlaylistContext(context || null);
