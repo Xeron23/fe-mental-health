@@ -136,7 +136,7 @@ const NewsCard = () => {
                   <span className="text-gray-500 text-sm font-semibold">
                     {article.readingTime} Menit Baca
                   </span>
-                  <Link href={`/mindful-news/${article.id}`}>
+                  <Link href={`/dashboard/mindful-news/${article.id}`}>
                     <Button text="Baca Selengkapnya" variant="primary" />
                   </Link>
                 </div>

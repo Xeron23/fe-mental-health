@@ -6,8 +6,6 @@ import MusicCard from "@/components/music/card";
 import Player from "@/components/music/player";
 import Footer from "@/components/footer/page";
 import SearchBar from "@/components/music/search";
-import dynamic from "next/dynamic";
-const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
 import request from "@/utils/request";
 
 const Meditasi = () => {
@@ -18,6 +16,7 @@ const Meditasi = () => {
   const [favorites, setFavorites] = useState([]);
   const [currentPlaylistContext, setCurrentPlaylistContext] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchMeditations = async () => {
@@ -27,16 +26,14 @@ const Meditasi = () => {
           request.get("/meditation?type=alam"),
         ]);
 
-        if (resMeditasi.code !== 200 || resAlam.code !== 200)
-          throw new Error("Gagal fetch data");
-
         const playlistsData = [
           {
             category: "Meditasi",
-            tracks: resMeditasi.data.map((item) => ({
+            tracks: (resMeditasi.data?.data || []).map((item) => ({
               id: item.meditation_id,
               title: item.title,
               description: item.description,
+              artist: item.description,
               thumbnail: item.thumbnailUrl,
               mediaUrl: item.mediaUrl,
               duration: item.duration,
@@ -45,10 +42,11 @@ const Meditasi = () => {
           },
           {
             category: "Alam",
-            tracks: resAlam.data.map((item) => ({
+            tracks: (resAlam.data?.data || []).map((item) => ({
               id: item.meditation_id,
               title: item.title,
               description: item.description,
+              artist: item.description,
               thumbnail: item.thumbnailUrl,
               mediaUrl: item.mediaUrl,
               duration: item.duration,
@@ -60,6 +58,7 @@ const Meditasi = () => {
         setPlaylists(playlistsData);
       } catch (err) {
         console.error("Fetch error:", err);
+        setError("Gagal memuat data meditasi.");
       } finally {
         setLoading(false);
       }
@@ -72,11 +71,12 @@ const Meditasi = () => {
     const fetchFavorites = async () => {
       try {
         const res = await request.get("/meditation/meditate-favorite");
-        if (res.code === 200 && Array.isArray(res.data)) {
+        if (Array.isArray(res.data)) {
           const mapped = res.data.map((item) => ({
             id: item.meditation_id,
             title: item.title,
             description: item.description,
+            artist: item.description,
             thumbnail: item.thumbnailUrl,
             mediaUrl: item.mediaUrl,
             duration: item.duration,
@@ -92,7 +92,7 @@ const Meditasi = () => {
     fetchFavorites();
   }, []);
 
-  const _keyOf = (t) => (t.id ? `${t.id}` : `${t.title}||${t.artist}`);
+  const _keyOf = (t) => `${t.id || t.title}`;
 
   const toggleFavorite = async (track) => {
     const key = _keyOf(track);
@@ -100,11 +100,9 @@ const Meditasi = () => {
 
     try {
       if (exists) {
-        // hapus dari favorite
         await request.delete(`/meditation/meditate-favorite/${track.id}`);
         setFavorites((prev) => prev.filter((f) => _keyOf(f) !== key));
       } else {
-        // tambahkan ke favorite
         await request.post("/meditation/meditate-favorite", {
           meditation_id: track.id,
         });
@@ -128,8 +126,7 @@ const Meditasi = () => {
     if (currentPlaylistContext.type === "favorites") return favorites;
     if (currentPlaylistContext.type === "category") {
       const idx = currentPlaylistContext.categoryIdx;
-      const list = playlists[idx];
-      return list ? list.tracks : null;
+      return playlists[idx]?.tracks || null;
     }
     return null;
   };
@@ -150,12 +147,32 @@ const Meditasi = () => {
     if (prev) handlePlay(prev, currentPlaylistContext);
   };
 
-  const getYouTubeId = (url) => {
-    const regExp =
-      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[2].length === 11 ? match[2] : null;
-  };
+  if (error) {
+    return (
+      <>
+        <Navbar />
+        <div className="p-6 md:px-20 md:py-12">
+          <Breadcrumb
+            items={[
+              { label: "Dashboard", href: "/dashboard" },
+              { label: "Meditasi" },
+            ]}
+          />
+          <div className="text-center text-red-500 py-10">{error}</div>
+        </div>
+        <Footer />
+      </>
+    );
+  }
+
+
+  useEffect(() => {
+    console.log("Current track changed:", currentTrack);
+  }, [currentTrack]);
+
+  useEffect(() => {
+    console.log("Playing state changed:", isPlaying);
+  }, [isPlaying]);
 
   return (
     <>
@@ -172,7 +189,7 @@ const Meditasi = () => {
           <SearchBar onSearch={setSearchTerm} />
 
           {loading ? (
-            <p className="text-center text-neut-600">Loading...</p>
+            <p className="text-center text-neutral-600">Loading...</p>
           ) : (
             <MusicCard
               playlists={playlists}
@@ -182,36 +199,18 @@ const Meditasi = () => {
             />
           )}
 
-          <Player
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            onTogglePlay={handlePauseToggle}
-            onToggleFavorite={() =>
-              currentTrack && toggleFavorite(currentTrack)
-            }
-            isFavorite={
-              currentTrack
-                ? favorites.some((f) => _keyOf(f) === _keyOf(currentTrack))
-                : false
-            }
-            onNext={handleNext}
-            onPrev={handlePrev}
-          />
-
           {currentTrack && (
-            <div className="hidden">
-              <ReactPlayer
-                url={`https://www.youtube.com/watch?v=${getYouTubeId(
-                  currentTrack.mediaUrl
-                )}`}
-                playing={isPlaying}
-                controls={false}
-                width="0"
-                height="0"
-                volume={0.8}
-                onEnded={handleNext}
-              />
-            </div>
+            <Player
+              currentTrack={currentTrack}
+              isPlaying={isPlaying}
+              onTogglePlay={handlePauseToggle}
+              onToggleFavorite={() => toggleFavorite(currentTrack)}
+              isFavorite={favorites.some(
+                (f) => _keyOf(f) === _keyOf(currentTrack)
+              )}
+              onNext={handleNext}
+              onPrev={handlePrev}
+            />
           )}
         </div>
       </div>
