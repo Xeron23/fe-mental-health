@@ -218,13 +218,20 @@ const Visualize = () => {
                 ? "Terkejut"
                 : selectedItem.mood || "Tanpa Mood"}
             </h2>
-            <p className="text-gray-700">
-              {activeTab === "journal"
-                ? selectedItem.content || "Tidak ada detail."
-                : selectedItem.imageUrl
-                ? `Gambar: ${selectedItem.imageUrl}`
-                : "Tidak ada detail."}
-            </p>
+            {activeTab === "journal" ? (
+              <p className="text-gray-700">
+                {selectedItem.content || "Tidak ada detail."}
+              </p>
+            ) : selectedItem.imageUrl ? (
+              <img
+                src={selectedItem.imageUrl}
+                alt={selectedItem.title || "Gambar"}
+                className="w-full max-w-sm rounded-lg object-cover mt-2 border"
+              />
+            ) : (
+              <p className="text-gray-700">Tidak ada detail.</p>
+            )}
+
             <div className="text-right">
               <button
                 onClick={() => setSelectedItem(null)}
