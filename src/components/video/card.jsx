@@ -89,7 +89,7 @@ const VideoCards = () => {
         {displayedVideos.map((video) => (
           <Link
             key={video.id}
-            href={`/mindful-news/${video.id}`}
+            href={`/dashboard/video/${video.id}`}
             className="bg-white rounded-xl pt-4 border-2 border-transparent hover:border-primary-500 transition overflow-hidden flex-[1_1_calc(25%-1.5rem)] cursor-pointer h-auto"
             style={{ boxShadow: "0px 14px 50px rgba(197, 236, 255, 0.3)" }}
           >
