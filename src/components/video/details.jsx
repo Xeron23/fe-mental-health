@@ -1,30 +1,28 @@
 "use client";
 import { useState, useEffect } from "react";
-import Image from "next/image";
-import { useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import request from "@/utils/request";
 
 const VideoPage = () => {
-  const [news, setNews] = useState(null);
+  const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const { id } = useParams();
 
   useEffect(() => {
-    const fetchNewsDetail = async () => {
+    const fetchVideoDetail = async () => {
       if (!id) return;
       try {
         setLoading(true);
-        const res = await request.get(`/mindful-news/${id}`);
-        setNews(res.data?.data);
+        const res = await request.get(`/video/${id}`);
+        setVideo(res.data?.data);
       } catch (error) {
-        console.error("Error fetching news detail:", error);
+        console.error("Error fetching video detail:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNewsDetail();
+    fetchVideoDetail();
   }, [id]);
 
   if (loading)
@@ -34,48 +32,54 @@ const VideoPage = () => {
       </div>
     );
 
-  if (!news)
+  if (!video)
     return (
       <div className="flex justify-center items-center h-[50vh]">
         <p className="text-gray-600 text-lg">Video tidak ditemukan.</p>
       </div>
     );
 
+  const getYouTubeId = (url) => {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  };
+
+  const youtubeId = getYouTubeId(video.videoUrl);
+
   return (
-    <div className="max-w-7xl mx-auto py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="w-full aspect-video rounded-xl overflow-hidden mb-6">
-        <img
-          src={news.imageUrl}
-          alt={news.title}
-          className="w-full h-full object-cover"
-        />
+        {youtubeId ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${youtubeId}`}
+            title={video.title}
+            className="w-full h-full"
+            allowFullScreen
+          ></iframe>
+        ) : (
+          <p className="text-center text-gray-500">Video tidak tersedia</p>
+        )}
       </div>
 
-      <h1 className="text-xl md:text-2xl text-left font-semibold mb-3">
-        {news.title}
+      <h1 className="text-xl md:text-2xl font-semibold mb-3 text-left">
+        {video.title}
       </h1>
 
-      <div className="flex items-center gap-3 mb-6">
-        <Image
-          src="/assets/images/author-avatar.png"
-          alt="Author"
-          width={40}
-          height={40}
-          className="rounded-full object-cover"
-        />
-        <div>
-          <p className="font-medium text-gray-800">The Camera Guy</p>
-          <p className="text-sm text-gray-500">{news.readingTime} min read</p>
-        </div>
+      <div className="bg-neut-100 rounded-2xl max-w-full h-30 p-5 flex flex-col gap-3">
+        <p className="text-sm font-semibold text-gray-900">
+          Dipublikasikan pada{" "}
+          {new Date(video.createdAt).toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+        <p className="text-gray-700 leading-relaxed text-sm md:text-lg mb-6">
+          {video.description}
+        </p>
       </div>
-
-      <p className="text-gray-700 leading-relaxed text-base md:text-lg mb-8">
-        {news.description}
-      </p>
-
-      <p className="text-gray-700 leading-relaxed text-base md:text-lg mb-8 whitespace-pre-line">
-        {news.content}
-      </p>
     </div>
   );
 };
