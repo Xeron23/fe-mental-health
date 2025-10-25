@@ -1,216 +1,147 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import request from "@/utils/request";
+import { formatWaktu } from "@/utils/time";
+import AddJournalCard from "@/components/journal/cardAddJournal";
+import JournalCard from "@/components/journal/cardJournal";
 import Navbar from "@/components/navbar/page";
 import Breadcrumb from "@/components/breadcrumb/page";
-import MusicCard from "@/components/music/card";
-import Player from "@/components/music/player";
-import Footer from "@/components/footer/page";
-import SearchBar from "@/components/music/search";
-import dynamic from "next/dynamic";
-const ReactPlayer = dynamic(() => import("react-player"), { ssr: false });
-import request from "@/utils/request";
+import Modal from "@/components/modal/page";
+import { HiOutlineDotsVertical } from "react-icons/hi";
 import toast from "react-hot-toast";
 
-const Meditasi = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [playlists, setPlaylists] = useState([]);
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [favorites, setFavorites] = useState([]);
-  const [currentPlaylistContext, setCurrentPlaylistContext] = useState(null);
-  const [loading, setLoading] = useState(true);
+const SmartJournaling = () => {
+  const router = useRouter();
+  const [fetchJournal, setFetchJournal] = useState([]);
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
 
-  const fetchMeditations = useCallback(async () => {
+  const toggleSelectMode = () => {
+    setSelectMode((prev) => !prev);
+    if (selectMode) setSelectedIds([]);
+  };
+
+  const onSelectedJournal = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const onDeleteJournal = async () => {
+    try {
+      await Promise.all(
+        selectedIds.map((id) => request.delete(`/journal/${id}`))
+      );
+      toast.success("Jurnal berhasil dihapus");
+      setFetchJournal((prev) =>
+        prev.filter((j) => !selectedIds.includes(j.journal_id))
+      );
+      fetchAllJournal();
+    } catch (err) {
+      toast.error("Jurnal gagal dihapus");
+    } finally {
+      setOpenModal(false);
+      setSelectedIds([]);
+      setSelectMode(false);
+    }
+  };
+
+  const fetchAllJournal = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await request.get("/meditation");
-      const data = response?.data?.data;
+      const response = await request.get("/journal");
+      const data = response.data.data?.data;
 
-      const meditationData = Array.isArray(data) ? data : data ? [data] : [];
+      const userId = parseInt(localStorage.getItem("userId"));
+      const userJournal = Array.isArray(data)
+        ? data
+        : data
+        ? [data]
+        : []
+        ? data.filter((j) => j.userId === userId)
+        : [];
 
-      const playlistsData = [
-        {
-          category: "Meditasi",
-          tracks: meditationData.map((item) => ({
-            id: item.meditation_id,
-            title: item.title,
-            description: item.description,
-            thumbnail: item.thumbnailUrl,
-            mediaUrl: item.mediaUrl,
-            duration: item.duration,
-            type: item.type,
-          })),
-        },
-      ];
-
-      setPlaylists(playlistsData);
+      setFetchJournal(userJournal);
     } catch (err) {
-      if (err.response && err.response.status === 404) {
-        setPlaylists([]);
+      if (err.response && err.response.status == 404) {
+        setFetchJournal([]);
       } else {
-        toast.error("Gagal fetch data meditasi");
+        toast.error("Gagal mengambil data jurnal");
       }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const fetchFavorites = useCallback(async () => {
-    try {
-      const response = await request.get("/meditation/meditate-favorite");
-      const data = response?.data?.data;
-
-      const favoriteData = Array.isArray(data) ? data : data ? [data] : [];
-
-      const mapped = favoriteData.map((item) => ({
-        id: item.meditation_id,
-        title: item.title,
-        description: item.description,
-        thumbnail: item.thumbnailUrl,
-        mediaUrl: item.mediaUrl,
-        duration: item.duration,
-        type: item.type,
-      }));
-
-      setFavorites(mapped);
-    } catch (err) {
-      if (err.response && err.response.status === 404) {
-        setFavorites([]);
-      } else {
-        toast.error("Gagal fetch data favorit");
-      }
-    }
-  }, []);
-
   useEffect(() => {
-    fetchMeditations();
-    fetchFavorites();
-  }, [fetchMeditations, fetchFavorites]);
-
-  const _keyOf = (t) => (t.id ? `${t.id}` : `${t.title}||${t.artist}`);
-
-  const toggleFavorite = async (track) => {
-    const key = _keyOf(track);
-    const exists = favorites.some((f) => _keyOf(f) === key);
-
-    try {
-      if (exists) {
-        await request.delete(`/meditation/meditate-favorite/${track.id}`);
-        setFavorites((prev) => prev.filter((f) => _keyOf(f) !== key));
-      } else {
-        await request.post("/meditation/meditate-favorite", {
-          meditation_id: track.id,
-        });
-        setFavorites((prev) => [track, ...prev]);
-      }
-    } catch (err) {
-      console.error("Gagal ubah favorite:", err);
-    }
-  };
-
-  const handlePlay = (track, context) => {
-    setCurrentTrack(track);
-    setCurrentPlaylistContext(context || null);
-    setIsPlaying(true);
-  };
-
-  const handlePauseToggle = () => setIsPlaying((s) => !s);
-
-  const getCurrentPlaylistArray = () => {
-    if (!currentPlaylistContext) return null;
-    if (currentPlaylistContext.type === "favorites") return favorites;
-    if (currentPlaylistContext.type === "category") {
-      const idx = currentPlaylistContext.categoryIdx;
-      const list = playlists[idx];
-      return list ? list.tracks : null;
-    }
-    return null;
-  };
-
-  const handleNext = () => {
-    const arr = getCurrentPlaylistArray();
-    if (!arr || !currentTrack) return;
-    const idx = arr.findIndex((t) => _keyOf(t) === _keyOf(currentTrack));
-    const next = arr[idx + 1] || arr[0];
-    if (next) handlePlay(next, currentPlaylistContext);
-  };
-
-  const handlePrev = () => {
-    const arr = getCurrentPlaylistArray();
-    if (!arr || !currentTrack) return;
-    const idx = arr.findIndex((t) => _keyOf(t) === _keyOf(currentTrack));
-    const prev = arr[idx - 1] || arr[arr.length - 1];
-    if (prev) handlePlay(prev, currentPlaylistContext);
-  };
-
-  const getYouTubeId = (url) => {
-    const regExp =
-      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[2].length === 11 ? match[2] : null;
-  };
+    fetchAllJournal();
+  }, [fetchAllJournal]);
 
   return (
-    <>
+    <div>
       <Navbar />
       <div className="p-6 md:px-20 md:py-12">
         <Breadcrumb
           items={[
             { label: "Dashboard", href: "/dashboard" },
-            { label: "Meditasi" },
+            { label: "Jurnal Pintar" },
           ]}
         />
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Jurnal Pintar</h1>
 
-        <div className="mt-10">
-          <SearchBar onSearch={setSearchTerm} />
+          <div className="flex flex-row items-center gap-4">
+            {selectMode && selectedIds.length > 0 && (
+              <button
+                onClick={() => setOpenModal(true)}
+                className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition"
+              >
+                Hapus yang Dipilih
+              </button>
+            )}
 
-          {loading ? (
-            <p className="text-center text-neut-600">Loading...</p>
-          ) : (
-            <MusicCard
-              playlists={playlists}
-              favorites={favorites}
-              searchTerm={searchTerm}
-              onPlay={(track, ctx) => handlePlay(track, ctx)}
+            <HiOutlineDotsVertical
+              className="text-neut-950 text-2xl cursor-pointer"
+              onClick={toggleSelectMode}
             />
-          )}
+          </div>
+        </div>
 
-          <Player
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            onTogglePlay={handlePauseToggle}
-            onToggleFavorite={() =>
-              currentTrack && toggleFavorite(currentTrack)
-            }
-            isFavorite={
-              currentTrack
-                ? favorites.some((f) => _keyOf(f) === _keyOf(currentTrack))
-                : false
-            }
-            onNext={handleNext}
-            onPrev={handlePrev}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 min-h-[280px]">
+          <AddJournalCard
+            onClick={() => router.push("/smartJournaling/addJournal")}
           />
-
-          {currentTrack && (
-            <div className="hidden">
-              <ReactPlayer
-                url={`https://www.youtube.com/watch?v=${getYouTubeId(
-                  currentTrack.mediaUrl
-                )}`}
-                playing={isPlaying}
-                controls={false}
-                width="0"
-                height="0"
-                volume={0.8}
-                onEnded={handleNext}
+          {Array.isArray(fetchJournal) && fetchJournal.length > 0 ? (
+            fetchJournal.map((journal) => (
+              <JournalCard
+                key={journal.journal_id}
+                title={journal.title}
+                description={journal.content}
+                date={formatWaktu(journal.updatedAt, "date")}
+                selected={selectedIds.includes(journal.journal_id)}
+                onSelect={() => onSelectedJournal(journal.journal_id)}
+                selectMode={selectMode}
               />
-            </div>
+            ))
+          ) : (
+            <p className="col-span-full text-center text-gray-500">
+              Belum ada jurnal.
+            </p>
           )}
         </div>
       </div>
-      <Footer />
-    </>
+      <Modal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        onConfirm={onDeleteJournal}
+        title="Apakah Anda yakin ingin menghapus jurnal ini?"
+        description="Jurnal ini akan dihapus secara permanen dan tidak dapat dipulihkan."
+      />
+    </div>
   );
 };
 
-export default Meditasi;
+export default SmartJournaling;
